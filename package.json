@@ -1,0 +1,22 @@
+{
+  "name": "memento",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Choose a few photos, make a little movie, watch it.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.ts",
+    "artifact": "node tools/make-artifact.mjs"
+  },
+  "devDependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/manrope": "^5.3.0",
+    "@types/node": "^26.6.4",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.3"
+  }
+}
