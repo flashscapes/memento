@@ -6,7 +6,13 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#171614">
 <title>Memento</title>
-<link rel="icon" href="data:,">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Memento">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
 <link rel="stylesheet" href="/src/styles.css">
 </head>
 <body>
@@ -69,10 +75,11 @@
           Photos
         </button>
       </div>
-      <div class="stage">
+      <div class="stage" id="stage">
         <div class="film" id="film">
           <canvas id="film-canvas" role="img" aria-label="Your movie, a browser preview"></canvas>
           <button class="film-hit" id="film-hit" type="button" aria-label="Play or pause the movie"></button>
+          <p class="turn-hint" id="turn-hint">Turn your phone sideways to fill the screen</p>
           <div class="film-state" id="film-state">
             <span class="fab" id="film-fab" aria-hidden="true"></span>
             <span class="film-msg" id="film-msg" hidden>Getting ready</span>
@@ -83,7 +90,7 @@
           <input class="seek" id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Position in the movie">
           <span class="time" id="time">0:00 / 0:00</span>
           <button class="iconbtn" id="mute" type="button" aria-label="Mute" aria-pressed="false" hidden></button>
-          <button class="iconbtn" id="fs" type="button" aria-label="Full screen" hidden>
+          <button class="iconbtn" id="fs" type="button" aria-label="Full screen" aria-pressed="false">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
           </button>
         </div>
@@ -110,17 +117,13 @@
       </div>
       <fieldset class="group">
         <legend>Music</legend>
-        <div class="seg">
-          <label><input type="radio" name="music" value="gentle"><span>Gentle piano</span></label>
-          <label><input type="radio" name="music" value="warm"><span>Warm glow</span></label>
-          <label><input type="radio" name="music" value="none"><span>No music</span></label>
-        </div>
+        <div class="tracks" id="music-list"></div>
       </fieldset>
       <fieldset class="group" id="clipsound-group" hidden>
         <legend>Sound from your clips</legend>
         <div class="seg">
-          <label><input type="radio" name="clipsound" value="on"><span>Keep it</span></label>
           <label><input type="radio" name="clipsound" value="off"><span>Silent clips</span></label>
+          <label><input type="radio" name="clipsound" value="on"><span>Play their sound</span></label>
         </div>
       </fieldset>
       <fieldset class="group">

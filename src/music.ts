@@ -1,8 +1,13 @@
 import { musicGain, type DuckPoint, type MusicId } from './scene.ts';
 
-export const TRACKS: Record<Exclude<MusicId, 'none'>, { label: string; url: string }> = {
-  gentle: { label: 'Gentle piano', url: 'audio/gentle.mp3' },
-  warm: { label: 'Warm glow', url: 'audio/warm.mp3' },
+/** The soundtrack list, in the order Edit shows it. Every track is an original, synthesized piece (tools/make_music.py). */
+export const TRACKS: Record<Exclude<MusicId, 'none'>, { label: string; mood: string; url: string }> = {
+  gentle: { label: 'Gentle piano', mood: 'Soft and unhurried', url: 'audio/gentle.mp3' },
+  warm: { label: 'Warm glow', mood: 'Slow pads and bells', url: 'audio/warm.mp3' },
+  sunny: { label: 'Sunny morning', mood: 'Light and cheerful', url: 'audio/sunny.mp3' },
+  musicbox: { label: 'Music box', mood: 'A tender lullaby', url: 'audio/musicbox.mp3' },
+  waltz: { label: 'Slow waltz', mood: 'Nostalgic piano in three', url: 'audio/waltz.mp3' },
+  calm: { label: 'Calm waters', mood: 'Quiet, no beat', url: 'audio/calm.mp3' },
 };
 
 const LEVEL = 0.8;

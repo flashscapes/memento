@@ -1,5 +1,5 @@
 // Render a movie from files on disk, without the web app. Used for testing the renderer.
-//   node server/cli.ts out.mp4 [--music gentle|warm|none] [--pace relaxed|quicker] [--no-clip-sound]
+//   node server/cli.ts out.mp4 [--music gentle|warm|none] [--pace relaxed|quicker] [--clip-sound]
 //                      [--title-card card.png] [--trim N:start:length] file1 file2 ...
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -13,7 +13,7 @@ const argv = process.argv.slice(2);
 const out = resolve(argv.shift() ?? 'movie.mp4');
 let music: MusicId = 'gentle';
 let pace: Pace = 'relaxed';
-let clipSound = true;
+let clipSound = false;
 let titleFile: string | null = null;
 let title = '';
 const trims = new Map<number, Trim>();
@@ -22,7 +22,7 @@ for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === '--music') music = argv[++i] as MusicId;
   else if (a === '--pace') pace = argv[++i] as Pace;
-  else if (a === '--no-clip-sound') clipSound = false;
+  else if (a === '--clip-sound') clipSound = true;
   else if (a === '--title') title = argv[++i];
   else if (a === '--title-card') titleFile = resolve(argv[++i]);
   else if (a === '--trim') {

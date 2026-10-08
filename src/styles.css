@@ -43,7 +43,11 @@ h1, h2, p { margin: 0; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-.app { min-height: 100dvh; display: flex; flex-direction: column; }
+.app {
+  min-height: 100dvh; display: flex; flex-direction: column;
+  /* Home-screen app: the status bar is translucent, so keep content clear of it and of a landscape notch. */
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+}
 main { flex: 1; width: 100%; max-width: 1180px; margin: 0 auto; }
 
 /* ---- Header and wordmark ---- */
@@ -193,8 +197,6 @@ button.fab[disabled] { opacity: 0.4; cursor: default; }
 .film-state .fab { grid-area: 1 / 1; }
 .film-state.playing { opacity: 0; }
 .film-msg { grid-area: 1 / 1; font-size: 17px; color: var(--ink); }
-.film:fullscreen, .film:-webkit-full-screen { background: #000; display: grid; place-items: center; border-radius: 0; }
-.film:fullscreen canvas, .film:-webkit-full-screen canvas { width: min(100vw, calc(100vh * 16 / 9)); height: auto; aspect-ratio: 16 / 9; }
 
 .controls { display: flex; align-items: center; gap: 4px; padding: 6px calc(var(--gutter) - 8px) 0; }
 .time { font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; padding: 0 6px; }
@@ -290,8 +292,6 @@ button.fab[disabled] { opacity: 0.4; cursor: default; }
   .makebar-in { max-width: 380px; }
 }
 
-@media (max-width: 360px) { #fs { display: none; } }
-
 /* Phone turned sideways: the movie gets the screen. */
 @media (orientation: landscape) and (max-height: 520px) {
   .top { display: none; }
@@ -309,4 +309,42 @@ button.fab[disabled] { opacity: 0.4; cursor: default; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* ---- Music list in Edit ---- */
+.tracks { display: flex; flex-direction: column; gap: 8px; }
+.track { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; }
+.track label { position: relative; display: block; min-width: 0; }
+.track input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.track label > span {
+  display: flex; flex-direction: column; justify-content: center; gap: 1px; min-height: 56px; padding: 8px 14px;
+  border-radius: 12px; background: var(--surface); transition: background-color 0.2s, box-shadow 0.2s;
+}
+.track b { font: 600 16px/1.25 var(--body); }
+.track small { font-size: 15px; line-height: 1.25; color: var(--muted); }
+.track input:checked + span { background: #34302b; box-shadow: inset 0 0 0 1.5px var(--accent); }
+.track input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 2px; }
+.track .hear { width: 56px; height: 56px; background: var(--surface); }
+.track:not(:has(.hear)) { grid-template-columns: minmax(0, 1fr); }
+
+/* ---- Full screen ("theater"): the stage fills the page. Real fullscreen is requested too where it exists. ---- */
+.turn-hint { display: none; }
+body.theater { overflow: hidden; }
+body.theater .stage { position: fixed; inset: 0; z-index: 40; background: #000; }
+body.theater .film { position: absolute; inset: 0; width: auto; max-height: none; margin: 0; aspect-ratio: auto; border-radius: 0; background: #000; }
+body.theater .film canvas { width: 100%; height: 100%; object-fit: contain; }
+body.theater .controls {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; margin: 0;
+  padding: 36px max(12px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left));
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0));
+  transition: opacity 0.25s;
+}
+body.theater .stage.hide-ui .controls { opacity: 0; pointer-events: none; }
+body.theater .stage.hide-ui { cursor: none; }
+@media (orientation: portrait) {
+  body.theater .turn-hint {
+    display: block; position: absolute; left: 24px; right: 24px; z-index: 1; text-align: center; pointer-events: none;
+    top: calc(50% + 28.125vw + 18px); font-size: 16px; color: var(--muted); transition: opacity 0.25s;
+  }
+  body.theater .stage.hide-ui .turn-hint { opacity: 0; }
 }

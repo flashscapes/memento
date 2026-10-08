@@ -12,7 +12,7 @@ import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { MAX_CLIPS, MAX_ITEMS, MAX_TITLE, type MovieOptions, type MusicId, type Pace, type Trim } from '../src/scene.ts';
+import { MAX_CLIPS, MAX_ITEMS, MAX_TITLE, MUSIC_IDS, type MovieOptions, type MusicId, type Pace, type Trim } from '../src/scene.ts';
 import { renderMovie, RenderError, type RenderItem } from './render.ts';
 
 const root = resolve(fileURLToPath(import.meta.url), '..', '..');
@@ -120,10 +120,10 @@ function validate(body: any, job: Job): { options: MovieOptions; items: RenderIt
   const o = body.options ?? {};
   const music = o.music as MusicId;
   const pace = o.pace as Pace;
-  if (!['gentle', 'warm', 'none'].includes(music)) bad('Unknown music.');
+  if (music !== 'none' && !(MUSIC_IDS as readonly string[]).includes(music)) bad('Unknown music.');
   if (!['relaxed', 'quicker'].includes(pace)) bad('Unknown pace.');
   const title = typeof o.title === 'string' ? o.title.trim().slice(0, MAX_TITLE) : '';
-  const options: MovieOptions = { title, music, pace, reducedMotion: Boolean(o.reducedMotion), clipSound: o.clipSound !== false };
+  const options: MovieOptions = { title, music, pace, reducedMotion: Boolean(o.reducedMotion), clipSound: o.clipSound === true };
   const list = body.items;
   if (!Array.isArray(list) || list.length < 1 || list.length > MAX_ITEMS) bad(`Between 1 and ${MAX_ITEMS} items are needed.`);
   let clips = 0;

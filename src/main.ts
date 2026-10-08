@@ -36,7 +36,7 @@ const state = {
   screen: 'home' as Screen,
   items: [] as Media[],
   samples: [] as Photo[],
-  options: { title: '', music: 'gentle', pace: 'relaxed', clipSound: true } as Options,
+  options: { title: '', music: 'gentle', pace: 'relaxed', clipSound: false } as Options,
   fresh: new Set<string>(),
   muted: false,
 };
@@ -49,6 +49,7 @@ const ICON_X = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stro
 const ICON_SOUND = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" fill="currentColor"/><path d="M15.5 9a4.2 4.2 0 010 6M18 6.5a8 8 0 010 11"/></svg>';
 const ICON_MUTED = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" fill="currentColor"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>';
 const ICON_PLAY_SM = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 001.5.86l11-6.8a1 1 0 000-1.72l-11-6.8A1 1 0 008 5.2z"/></svg>';
+const ICON_PAUSE_SM = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4.4" height="14" rx="1.2"/><rect x="13.6" y="5" width="4.4" height="14" rx="1.2"/></svg>';
 const ICON_UP = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 15l7-7 7 7"/></svg>';
 const ICON_DOWN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg>';
 
@@ -131,7 +132,10 @@ const usedLength = (c: Clip) => resolveTrim(c.duration, c.trim, state.options.pa
 let hero: Player | null = null;
 
 function show(screen: Screen): void {
-  if (state.screen === 'watch' && screen !== 'watch') film.pause();
+  if (state.screen === 'watch' && screen !== 'watch') {
+    film.pause();
+    if (theater) void leaveFullscreen();
+  }
   state.screen = screen;
   for (const s of ['home', 'photos', 'watch'] as Screen[]) {
     const el = $(`screen-${s}`);
@@ -424,9 +428,11 @@ function openItem(id: string): void {
     peek.video = pv;
     const t = resolveTrim(m.duration, m.trim, state.options.pace);
     pv.addEventListener('loadeddata', () => (pv.currentTime = t.start), { once: true });
-    $('clip-audio-note').textContent = m.hasAudio
-      ? 'Its own sound is kept, and the music lowers underneath.'
-      : 'This clip has no sound.';
+    $('clip-audio-note').textContent = !m.hasAudio
+      ? 'This clip has no sound.'
+      : state.options.clipSound
+        ? 'Its own sound is kept, and the music lowers underneath.'
+        : 'It plays silently over the music. You can turn its own sound on in Edit.';
     syncTrimUi(m);
   }
   dlg.showModal();
@@ -500,6 +506,7 @@ function syncWatchUi(s: PlayerState): void {
   $('film-fab').innerHTML = ICON_PLAY;
   $('actions').classList.toggle('away', playing);
   if (s === 'ended') announce('The movie has finished.');
+  if (theater) showControls();
 }
 
 function syncMuteUi(): void {
@@ -583,6 +590,75 @@ async function watchSample(): Promise<void> {
   }
 }
 
+// A few seconds of a track so you can choose by ear. Stops on its own, on the next tap, or when Edit closes.
+let previewId: MusicId | null = null;
+let previewTimer = 0;
+const PREVIEW_AT = 12;
+const PREVIEW_SECONDS = 7;
+
+function stopPreview(): void {
+  window.clearTimeout(previewTimer);
+  if (previewId) music.stop();
+  previewId = null;
+  for (const b of document.querySelectorAll<HTMLButtonElement>('#music-list .hear')) {
+    b.innerHTML = ICON_PLAY_SM;
+    b.setAttribute('aria-label', `Hear ${b.dataset.label}`);
+  }
+}
+
+async function togglePreview(id: Exclude<MusicId, 'none'>, button: HTMLButtonElement): Promise<void> {
+  if (previewId === id) return stopPreview();
+  stopPreview();
+  music.unlock(); // inside the tap
+  music.setMuted(false); // a muted movie should still let you hear a choice
+  previewId = id;
+  button.innerHTML = ICON_PAUSE_SM;
+  button.setAttribute('aria-label', `Stop ${TRACKS[id].label}`);
+  try {
+    await music.load(id);
+    if (previewId !== id) return; // switched or closed while loading
+    music.start(id, PREVIEW_AT, PREVIEW_AT + PREVIEW_SECONDS);
+    previewTimer = window.setTimeout(stopPreview, PREVIEW_SECONDS * 1000 + 200);
+  } catch {
+    stopPreview();
+    announce('That track could not be played.');
+  }
+}
+
+function buildMusicList(): void {
+  const list = $('music-list');
+  const row = (id: MusicId, label: string, mood: string) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'track';
+    const lab = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'music';
+    input.value = id;
+    const text = document.createElement('span');
+    const name = document.createElement('b');
+    name.textContent = label;
+    const sub = document.createElement('small');
+    sub.textContent = mood;
+    text.append(name, sub);
+    lab.append(input, text);
+    wrap.append(lab);
+    if (id !== 'none') {
+      const hear = document.createElement('button');
+      hear.type = 'button';
+      hear.className = 'iconbtn hear';
+      hear.dataset.label = label;
+      hear.innerHTML = ICON_PLAY_SM;
+      hear.setAttribute('aria-label', `Hear ${label}`);
+      hear.addEventListener('click', () => void togglePreview(id, hear));
+      wrap.append(hear);
+    }
+    list.append(wrap);
+  };
+  for (const [id, t] of Object.entries(TRACKS)) row(id as MusicId, t.label, t.mood);
+  row('none', 'No music', 'Just the photos and clips');
+}
+
 function openEdit(): void {
   film.pause();
   const dlg = $<HTMLDialogElement>('edit-dialog');
@@ -604,7 +680,7 @@ function applyEdit(): void {
     pace: (dlg.querySelector<HTMLInputElement>('input[name=pace]:checked')?.value ?? 'relaxed') as Pace,
     clipSound: $('clipsound-group').hidden
       ? state.options.clipSound
-      : (dlg.querySelector<HTMLInputElement>('input[name=clipsound]:checked')?.value ?? 'on') === 'on',
+      : (dlg.querySelector<HTMLInputElement>('input[name=clipsound]:checked')?.value ?? 'off') === 'on',
   };
   const changed = (Object.keys(next) as (keyof Options)[]).some((k) => next[k] !== state.options[k]);
   state.options = next;
@@ -753,6 +829,64 @@ async function runExport(): Promise<void> {
 
 // ---------------------------------------------------------------- wiring
 
+// ---------------------------------------------------------------- full screen
+
+const ICON_FS = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>';
+const ICON_FS_EXIT = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>';
+
+type FsDoc = Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => void };
+type FsEl = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
+
+let theater = false;
+let hideTimer = 0;
+
+const fullscreenElement = (): Element | null => document.fullscreenElement ?? (document as FsDoc).webkitFullscreenElement ?? null;
+
+function setTheater(on: boolean): void {
+  if (theater === on) return;
+  theater = on;
+  document.body.classList.toggle('theater', on);
+  const fs = $('fs');
+  fs.innerHTML = on ? ICON_FS_EXIT : ICON_FS;
+  fs.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
+  fs.setAttribute('aria-pressed', String(on));
+  window.clearTimeout(hideTimer);
+  $('stage').classList.remove('hide-ui');
+  if (on) showControls();
+  announce(on ? 'Full screen' : 'Full screen off');
+}
+
+/** Controls fade away three seconds after the last touch while the movie plays, and come back on any touch. */
+function showControls(): void {
+  const stage = $('stage');
+  stage.classList.remove('hide-ui');
+  window.clearTimeout(hideTimer);
+  hideTimer = window.setTimeout(() => {
+    if (theater && film.state === 'playing') stage.classList.add('hide-ui');
+  }, 3000);
+}
+
+async function enterFullscreen(): Promise<void> {
+  setTheater(true);
+  const el = $('stage') as FsEl;
+  try {
+    if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
+    else await el.webkitRequestFullscreen?.();
+  } catch {
+    /* no real full screen here (iPhone, or the page is embedded); filling the page is the fallback */
+  }
+}
+
+async function leaveFullscreen(): Promise<void> {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else (document as FsDoc).webkitExitFullscreen?.();
+  } catch {
+    /* already out */
+  }
+  setTheater(false);
+}
+
 function wire(): void {
   $('wordmark').addEventListener('click', () => show('home'));
   $('choose').addEventListener('click', () => $<HTMLInputElement>('file').click());
@@ -870,23 +1004,31 @@ function wire(): void {
     wasPlaying = false;
   });
 
-  const root = document as Document & { webkitFullscreenEnabled?: boolean; webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => void };
-  const filmEl = $('film') as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
-  const fsOk = Boolean(root.fullscreenEnabled || root.webkitFullscreenEnabled);
-  $('fs').hidden = !fsOk;
-  $('fs').addEventListener('click', async () => {
-    try {
-      if (root.fullscreenElement || root.webkitFullscreenElement) {
-        if (root.exitFullscreen) await root.exitFullscreen();
-        else root.webkitExitFullscreen?.();
-      } else if (filmEl.requestFullscreen) await filmEl.requestFullscreen();
-      else await filmEl.webkitRequestFullscreen?.();
-    } catch {
-      announce('Full screen isn’t available here.');
-    }
+  // Full screen. iPhone Safari only allows the Fullscreen API on <video>, and the movie is a canvas, so
+  // the stage fills the whole page instead ("theater"). Where the real API exists it is used as well.
+  $('fs').innerHTML = ICON_FS;
+  $('fs').addEventListener('click', () => void (theater ? leaveFullscreen() : enterFullscreen()));
+  const poke = () => {
+    if (theater) showControls();
+  };
+  $('stage').addEventListener('pointerdown', poke);
+  $('stage').addEventListener('pointermove', poke);
+  document.addEventListener('fullscreenchange', () => {
+    if (theater && !fullscreenElement()) setTheater(false);
+  });
+  document.addEventListener('webkitfullscreenchange', () => {
+    if (theater && !fullscreenElement()) setTheater(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && theater && !document.querySelector('dialog[open]')) void leaveFullscreen();
   });
 
   // Edit sheet
+  buildMusicList();
+  $<HTMLDialogElement>('edit-dialog').addEventListener('close', () => {
+    stopPreview();
+    music.setMuted(state.muted);
+  });
   $('edit-form').addEventListener('submit', (e) => {
     e.preventDefault();
     applyEdit();
@@ -909,7 +1051,7 @@ async function boot(): Promise<void> {
   hero = new Player($<HTMLCanvasElement>('hero-canvas'), { scale: 0.5, loop: true, music: null });
   try {
     state.samples = await loadSamples();
-    hero.setMovie(state.samples, { title: '', music: 'none', pace: 'relaxed', reducedMotion: reduced.matches, clipSound: true }, reduced.matches ? 2.5 : 0);
+    hero.setMovie(state.samples, { title: '', music: 'none', pace: 'relaxed', reducedMotion: reduced.matches, clipSound: false }, reduced.matches ? 2.5 : 0);
     $<HTMLButtonElement>('sample').disabled = false;
     $<HTMLButtonElement>('hero-play').disabled = false;
     syncHero();

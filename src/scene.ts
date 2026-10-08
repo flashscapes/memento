@@ -2,7 +2,8 @@
 // and the MP4 renderer (server/) reads the very same file. No DOM in here.
 
 export type Pace = 'relaxed' | 'quicker';
-export type MusicId = 'gentle' | 'warm' | 'none';
+export const MUSIC_IDS = ['gentle', 'warm', 'sunny', 'musicbox', 'waltz', 'calm'] as const;
+export type MusicId = (typeof MUSIC_IDS)[number] | 'none';
 
 export interface MovieOptions {
   title: string;
@@ -79,10 +80,13 @@ export const DUCK_LEVEL = 0.18;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-/** Seconds each still is on screen. Fewer items get a shorter film, not stretched stills. */
+/**
+ * Seconds each still is on screen, crossfades included. Fewer items get a shorter film, not stretched
+ * stills. These are the first version's numbers (52/n in 4.2 to 7 s; 36/n in 3 to 4.2 s) made 35% faster.
+ */
 export function secondsPerPhoto(count: number, pace: Pace): number {
   const n = Math.max(1, count);
-  return pace === 'relaxed' ? clamp(52 / n, 4.2, 7) : clamp(36 / n, 3, 4.2);
+  return pace === 'relaxed' ? clamp(33.8 / n, 2.73, 4.55) : clamp(23.4 / n, 2.2, 2.73);
 }
 
 /** The excerpt Memento picks when the user has not trimmed: a few seconds, a little way in. */

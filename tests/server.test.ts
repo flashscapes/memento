@@ -88,8 +88,8 @@ test('uploads a photo and a clip, renders, and serves an MP4 that matches the pl
   const v = probe.streams.find((s) => s.codec_name === 'h264')!;
   assert.equal(`${v.width}x${v.height}`, '1280x720');
   assert.ok(probe.streams.some((s) => s.codec_name === 'aac'));
-  // 1 photo (7 s) + a 4 s clip crossfaded by 1.2 s = 9.8 s
-  assert.ok(Math.abs(Number(probe.format.duration) - 9.8) < 0.1, `duration ${probe.format.duration}`);
+  // 1 photo (4.55 s) + a 4 s clip crossfaded by 1.2 s = 7.35 s
+  assert.ok(Math.abs(Number(probe.format.duration) - 7.35) < 0.1, `duration ${probe.format.duration}`);
 
   assert.equal((await fetch(`${base}/api/jobs/${id}`, { method: 'DELETE' })).status, 200);
   assert.equal((await fetch(`${base}/api/jobs/${id}`)).status, 404);

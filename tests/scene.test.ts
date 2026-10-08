@@ -26,11 +26,21 @@ const clip = (duration = 20, hasAudio = true, trim: Trim | null = null): PlanIte
   trim,
 });
 
-test('typical films land in the 30 to 62 second range', () => {
+test('typical films land in the 15 to 32 second range', () => {
   for (const n of [5, 6, 8, 10, 12]) {
     const d = buildPlan(photos(n), base).duration;
-    assert.ok(d >= 30 && d <= 62, `${n} photos -> ${d.toFixed(1)}s`);
+    assert.ok(d >= 15 && d <= 32, `${n} photos -> ${d.toFixed(1)}s`);
   }
+});
+
+test('stills change about 35% faster than the first version', () => {
+  const was = (n: number) => Math.min(7, Math.max(4.2, 52 / n));
+  for (const n of [8, 10, 12]) {
+    const ratio = secondsPerPhoto(n, 'relaxed') / was(n);
+    assert.ok(ratio > 0.6 && ratio < 0.7, `${n} photos -> ${ratio.toFixed(2)}`);
+  }
+  // Even with a full 30 items a still stays on screen longer than the crossfade.
+  assert.ok(secondsPerPhoto(30, 'quicker') > 1.2 + 0.8);
 });
 
 test('twenty photos stay under two minutes at either pace, even with a title', () => {
@@ -41,8 +51,8 @@ test('twenty photos stay under two minutes at either pace, even with a title', (
 });
 
 test('one or two photos make a short film instead of stretching', () => {
-  assert.ok(buildPlan(photos(1), base).duration <= 7.01);
-  assert.ok(buildPlan(photos(2), base).duration <= 14);
+  assert.ok(buildPlan(photos(1), base).duration <= 4.56);
+  assert.ok(buildPlan(photos(2), base).duration <= 9);
 });
 
 test('quicker is quicker', () => {

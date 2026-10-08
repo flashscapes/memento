@@ -28,7 +28,10 @@ Up to **30 photos and clips** in one sequence (at most 10 clips, because phones 
 
 - **Clips use a short excerpt**: about 6 seconds, starting a little way in (4.5 s with the quicker pace). A clip shorter than that is used whole. Tap any tile to preview it; for a clip, **Starts at** and **Length** sliders trim it and **Let Memento choose** goes back to automatic. This is a fixed rule, not a search for the best moment.
 - **Orientation is kept.** Portrait clips and photos are never rotated wrongly or stretched; margins are filled with a blurred, darkened copy of the same picture.
-- **Sound.** Each clip's own sound is on by default and the music drops to about 18% under it. A speaker button on the watch screen mutes everything. Edit can switch clip sound off.
+- **Sound.** Clips play **silently** by default, over the music (some phones played clip sound distorted in the preview, so it is opt-in). **Edit → Sound from your clips → Play their sound** keeps each clip's own sound, and the music then drops to about 18% under it. A speaker button on the watch screen mutes everything.
+- **Music.** Six original tracks to choose from in Edit (Gentle piano, Warm glow, Sunny morning, Music box, Slow waltz, Calm waters) or no music. Each row has a button that plays a seven-second sample.
+- **Pace.** A still is on screen about 4.5 s with the relaxed pace and about 2.7 s with the quicker pace (35% faster than the first version), fewer for big sets: the time shrinks with the number of photos.
+- **Full screen.** The button on the watch screen fills the whole page. iPhone Safari has no full screen for this kind of picture, so Memento fills the page itself (turn the phone sideways for the biggest picture); on desktop, iPad and Android it also asks the browser for real full screen. For no browser bars at all on an iPhone, use **Share → Add to Home Screen** and open Memento from the icon.
 - **Unsupported files** are named with a reason (for example HEVC in a browser that can't play it) and everything else still goes in.
 
 ## How it works
@@ -45,7 +48,8 @@ Up to **30 photos and clips** in one sequence (at most 10 clips, because phones 
 | `server/render.ts` | FFmpeg renderer: one H.264 segment per scene, then crossfades, fades to black and the audio mix in one pass. |
 | `server/index.ts` | The small HTTP server (uploads, status, download) that also serves `dist/`. |
 | `server/cli.ts` | Render from files on disk: `node server/cli.ts out.mp4 a.jpg b.mov c.jpg` |
-| `tools/make_music.py` | Synthesizes the two soundtracks (needs numpy, scipy, ffmpeg). |
+| `tools/make_music.py` | Synthesizes the six soundtracks (needs numpy, scipy, ffmpeg). `python3 tools/make_music.py calm` builds one. |
+| `tools/make_icons.py` | Draws the home-screen icons into `public/icons/` (needs Pillow). |
 
 ## Preview versus MP4
 
@@ -72,7 +76,8 @@ Opening photos and clips happens in the browser; nothing is uploaded until you c
 
 **Tested** (headless desktop Chrome 141, FFmpeg 6.1, Linux):
 
-- Scene plan, container reader and an end-to-end render through the real server: 24 automated tests.
+- Scene plan, container reader and an end-to-end render through the real server: 25 automated tests.
+- Edit's music list (six tracks plus none), sample playback, switching track, clip sound on and off, full screen and its auto-hiding controls at 390x844, 844x390 and 1280x800.
 - Mixed photos and clips in the real UI at 390x844, 320x568 and 1280x800: choosing files, the loading progress, the clip cap (10) and item cap (30), preview, trim, Arrange, Edit, mute, no horizontal scroll, 44 px touch targets.
 - Playback of real clips: footage drawn into the movie, kept within about 0.05 s of the clock, portrait clip with rotation metadata shown upright and unstretched, a clip with no audio track leaving the music alone, music ducking and mute, and a clip used to its last frame not restarting.
 - Failure messages for H.264/HEVC MOV (this Chrome has no H.264 or HEVC decoder), a corrupt `.mov`, a clip under 1.5 s, a text file and a damaged photo.
@@ -84,9 +89,11 @@ Opening photos and clips happens in the browser; nothing is uploaded until you c
 - Firefox, Android, Safari on Mac.
 - H.264/HEVC clips *in the browser preview*: the sandbox's Chrome cannot decode them, so the preview pipeline was tested with VP9 versions of the same clips; the renderer was tested with the real H.264 and HEVC files.
 - A real iPhone HDR clip (the HLG test file is synthetic) and long, large (hundreds of MB) clips.
-- The music tracks have not been listened to, only level-checked.
+- **None of the six music tracks has been listened to** by me. They were checked for clipping, silent gaps and loudness (matched at about -16 LUFS) only.
+- **Clip sound on an iPhone**: it was reported distorted in the preview, I could not reproduce or fix it without the phone, so it is off by default.
+- **Full screen and Add to Home Screen on a real iPhone.** The page-filling mode was tested with the Fullscreen API removed at 390x844 and 844x390, not on a phone.
 - The published claude.ai Artifact: whether its content-security policy lets the page play video from a file you pick is unknown. The reliable test is `npm start`.
 
 ## Credits
 
-See `public/CREDITS.md`. Sample photos are public domain or Creative Commons Attribution 2.0. The music is original and synthesized in `tools/make_music.py`. There is no sample video: test clips were generated with FFmpeg and are not included.
+See `public/CREDITS.md`. Sample photos are public domain or Creative Commons Attribution 2.0. The music is original and synthesized in `tools/make_music.py`. The icon is drawn by `tools/make_icons.py`. There is no sample video: test clips were generated with FFmpeg and are not included.
