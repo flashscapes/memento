@@ -4,9 +4,15 @@ import { musicGain, type DuckPoint, type MusicId } from './scene.ts';
 export const TRACKS: Record<Exclude<MusicId, 'none'>, { label: string; mood: string; url: string }> = {
   gentle: { label: 'Gentle piano', mood: 'Soft and unhurried', url: 'audio/gentle.mp3' },
   warm: { label: 'Warm glow', mood: 'Slow pads and bells', url: 'audio/warm.mp3' },
+  golden: { label: 'Golden hour', mood: 'Lo-fi beat, warm and dusty', url: 'audio/golden.mp3' },
+  cafe: { label: 'Café lumière', mood: 'Soft jazz with brushes', url: 'audio/cafe.mp3' },
+  porch: { label: 'Porch swing', mood: 'Acoustic guitar, easygoing', url: 'audio/porch.mp3' },
   sunny: { label: 'Sunny morning', mood: 'Light and cheerful', url: 'audio/sunny.mp3' },
+  parade: { label: 'Tiny parade', mood: 'Playful and bouncy', url: 'audio/parade.mp3' },
   musicbox: { label: 'Music box', mood: 'A tender lullaby', url: 'audio/musicbox.mp3' },
   waltz: { label: 'Slow waltz', mood: 'Nostalgic piano in three', url: 'audio/waltz.mp3' },
+  aurora: { label: 'Northern lights', mood: 'Cinematic, slow and wide', url: 'audio/aurora.mp3' },
+  neon: { label: 'Neon dusk', mood: 'Dreamy synth, gentle pulse', url: 'audio/neon.mp3' },
   calm: { label: 'Calm waters', mood: 'Quiet, no beat', url: 'audio/calm.mp3' },
 };
 

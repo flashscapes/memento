@@ -4,10 +4,12 @@ import {
   blackAlpha,
   buildPlan,
   defaultTrim,
+  dimAlpha,
   fitTrim,
   musicGain,
   photoScale,
   sceneAlpha,
+  sceneOffset,
   secondsPerPhoto,
   DUCK_LEVEL,
   MAX_CLIP_SECONDS,
@@ -26,33 +28,67 @@ const clip = (duration = 20, hasAudio = true, trim: Trim | null = null): PlanIte
   trim,
 });
 
-test('typical films land in the 15 to 32 second range', () => {
+test('typical films land in the 12 to 30 second range', () => {
   for (const n of [5, 6, 8, 10, 12]) {
     const d = buildPlan(photos(n), base).duration;
-    assert.ok(d >= 15 && d <= 32, `${n} photos -> ${d.toFixed(1)}s`);
+    assert.ok(d >= 12 && d <= 30, `${n} photos -> ${d.toFixed(1)}s`);
   }
 });
 
-test('stills change about 35% faster than the first version', () => {
+test('stills change about twice as fast as the first version', () => {
   const was = (n: number) => Math.min(7, Math.max(4.2, 52 / n));
   for (const n of [8, 10, 12]) {
     const ratio = secondsPerPhoto(n, 'relaxed') / was(n);
-    assert.ok(ratio > 0.6 && ratio < 0.7, `${n} photos -> ${ratio.toFixed(2)}`);
+    assert.ok(ratio > 0.45 && ratio < 0.6, `${n} photos -> ${ratio.toFixed(2)}`);
   }
-  // Even with a full 30 items a still stays on screen longer than the crossfade.
-  assert.ok(secondsPerPhoto(30, 'quicker') > 1.2 + 0.8);
+  // Even with a full set a still stays on screen longer than its two transitions.
+  const cf = buildPlan(photos(2), base).crossfade;
+  assert.ok(secondsPerPhoto(60, 'quicker') > 2 * cf);
 });
 
-test('twenty photos stay under two minutes at either pace, even with a title', () => {
-  for (const pace of ['relaxed', 'quicker'] as const) {
-    const d = buildPlan(photos(20), { ...base, pace, title: 'x' }).duration;
-    assert.ok(d < 120, `${pace}: ${d.toFixed(1)}s`);
-  }
+test('arrivals vary: the first scene has none, most dissolve, some glide, rise or dip', () => {
+  const plan = buildPlan(photos(12), base);
+  assert.equal(plan.scenes[0].transition, 'none');
+  const kinds = new Set(plan.scenes.slice(1).map((s) => s.transition));
+  for (const k of ['fade', 'glide', 'rise', 'dip']) assert.ok(kinds.has(k as never), `missing ${k}`);
+  assert.ok(plan.scenes.filter((s) => s.transition === 'fade').length >= 4);
+});
+
+test('reduced motion and very short scenes only dissolve', () => {
+  const calm = buildPlan(photos(12), { ...base, reducedMotion: true });
+  assert.ok(calm.scenes.slice(1).every((s) => s.transition === 'fade'));
+  const quick = buildPlan([...photos(2), clip(1.6, false, null), ...photos(2)], base);
+  const short = quick.scenes.find((s) => s.kind === 'video')!;
+  assert.equal(short.transition, 'fade');
+});
+
+test('glide and rise travel a little and settle; a dip darkens and clears; nothing moves otherwise', () => {
+  const plan = buildPlan(photos(12), base);
+  const at = (kind: string) => plan.scenes.findIndex((s) => s.transition === kind);
+  const g = at('glide');
+  const r = at('rise');
+  const d = at('dip');
+  const f = at('fade');
+  const gs = plan.scenes[g].start;
+  assert.ok(sceneOffset(plan, g, gs).x > 0 && sceneOffset(plan, g, gs).x <= plan.width * 0.08);
+  assert.ok(sceneOffset(plan, g, gs).y === 0);
+  assert.ok(Math.abs(sceneOffset(plan, g, gs + plan.crossfade).x) < 1e-9);
+  assert.ok(sceneOffset(plan, r, plan.scenes[r].start).y > 0);
+  assert.deepEqual(sceneOffset(plan, f, plan.scenes[f].start + 0.1), { x: 0, y: 0 });
+  const ds = plan.scenes[d].start;
+  assert.equal(dimAlpha(plan, ds - 0.01), 0);
+  assert.ok(Math.abs(dimAlpha(plan, ds + plan.crossfade / 2) - 0.85) < 1e-9);
+  assert.equal(dimAlpha(plan, ds + plan.crossfade + 0.01), 0);
+  // The new picture only appears after the darkest moment.
+  assert.equal(sceneAlpha(plan, d, ds + plan.crossfade / 2), 0);
+  assert.equal(sceneAlpha(plan, d, ds + plan.crossfade), 1);
+  // No dim anywhere else.
+  assert.equal(dimAlpha(plan, plan.scenes[f].start + 0.3), 0);
 });
 
 test('one or two photos make a short film instead of stretching', () => {
-  assert.ok(buildPlan(photos(1), base).duration <= 4.56);
-  assert.ok(buildPlan(photos(2), base).duration <= 9);
+  assert.ok(buildPlan(photos(1), base).duration <= 3.51);
+  assert.ok(buildPlan(photos(2), base).duration <= 7);
 });
 
 test('quicker is quicker', () => {
@@ -104,7 +140,7 @@ test('fades: black at start and end, clear in the middle', () => {
   assert.ok(Math.abs(blackAlpha(plan, plan.duration) - 1) < 1e-9);
   assert.equal(blackAlpha(plan, plan.duration / 2), 0);
   assert.equal(sceneAlpha(plan, 1, plan.scenes[1].start), 0);
-  assert.equal(sceneAlpha(plan, 1, plan.scenes[1].start + plan.crossfade), 1);
+  assert.ok(Math.abs(sceneAlpha(plan, 1, plan.scenes[1].start + plan.crossfade) - 1) < 1e-9);
 });
 
 test('an empty selection has an empty plan', () => {
@@ -184,10 +220,10 @@ test('clips that follow each other share one dip', () => {
   assert.equal(lows.length, 2); // one dip: its start and its end
 });
 
-test('thirty mixed items still make a film under three minutes', () => {
-  const items: PlanItem[] = [...photos(25), clip(), clip(), clip(), clip(), clip()];
+test('the most it takes (60 items, 12 of them clips) still makes a film under four minutes', () => {
+  const items: PlanItem[] = [...photos(48), ...Array.from({ length: 12 }, () => clip())];
   for (const pace of ['relaxed', 'quicker'] as const) {
     const d = buildPlan(items, { ...base, pace }).duration;
-    assert.ok(d < 180, `${pace}: ${d.toFixed(0)}s`);
+    assert.ok(d < 240, `${pace}: ${d.toFixed(0)}s`);
   }
 });

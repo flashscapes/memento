@@ -2,7 +2,7 @@
 // and the MP4 renderer (server/) reads the very same file. No DOM in here.
 
 export type Pace = 'relaxed' | 'quicker';
-export const MUSIC_IDS = ['gentle', 'warm', 'sunny', 'musicbox', 'waltz', 'calm'] as const;
+export const MUSIC_IDS = ['gentle', 'warm', 'golden', 'cafe', 'porch', 'sunny', 'parade', 'musicbox', 'waltz', 'aurora', 'neon', 'calm'] as const;
 export type MusicId = (typeof MUSIC_IDS)[number] | 'none';
 
 export interface MovieOptions {
@@ -41,7 +41,23 @@ export interface Scene {
   zoom: 'in' | 'out' | 'none';
   /** Video scenes: the excerpt of the source clip and whether its sound is used. */
   clip?: { start: number; length: number; audio: boolean };
+  /** How this scene arrives over the one before it. The first scene has none. */
+  transition: Transition;
 }
+
+/**
+ * fade: a soft dissolve. glide: the next picture drifts in from the right while it dissolves.
+ * rise: it floats up from slightly below. dip: the film dims, then the next picture emerges from the dark.
+ */
+export type Transition = 'none' | 'fade' | 'glide' | 'rise' | 'dip';
+
+/** The rhythm of arrivals: mostly dissolves, a drift or a rise now and then, a dip once in a while. */
+export const TRANSITION_ROTATION: readonly Transition[] = ['fade', 'glide', 'fade', 'rise', 'fade', 'dip'];
+/** How far a glide or rise travels, as a fraction of the frame. */
+export const GLIDE_X = 0.07;
+export const RISE_Y = 0.06;
+/** How dark the frame gets at the middle of a dip. */
+export const DIP_LEVEL = 0.85;
 
 export interface DuckPoint {
   t: number;
@@ -66,9 +82,9 @@ export interface ScenePlan {
 }
 
 export const FRAME = { width: 1280, height: 720 } as const;
-export const MAX_ITEMS = 30;
+export const MAX_ITEMS = 60;
 /** Phones keep a decoder alive per video element, so clips are capped well below the item limit. */
-export const MAX_CLIPS = 10;
+export const MAX_CLIPS = 12;
 export const MAX_TITLE = 60;
 export const TITLE_CARD_SECONDS = 3.6;
 
@@ -81,12 +97,12 @@ export const DUCK_LEVEL = 0.18;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 /**
- * Seconds each still is on screen, crossfades included. Fewer items get a shorter film, not stretched
- * stills. These are the first version's numbers (52/n in 4.2 to 7 s; 36/n in 3 to 4.2 s) made 35% faster.
+ * Seconds each still is on screen, transition included. Fewer items get a shorter film, not stretched
+ * stills. The first version used 52/n (4.2 to 7 s); this is about half of that.
  */
 export function secondsPerPhoto(count: number, pace: Pace): number {
   const n = Math.max(1, count);
-  return pace === 'relaxed' ? clamp(33.8 / n, 2.73, 4.55) : clamp(23.4 / n, 2.2, 2.73);
+  return pace === 'relaxed' ? clamp(26 / n, 2.4, 3.5) : clamp(18.5 / n, 1.9, 2.3);
 }
 
 /** The excerpt Memento picks when the user has not trimmed: a few seconds, a little way in. */
@@ -110,7 +126,7 @@ export function resolveTrim(duration: number, trim: Trim | null, pace: Pace): Tr
 }
 
 export function buildPlan(items: PlanItem[], opts: MovieOptions): ScenePlan {
-  const crossfade = opts.reducedMotion ? 0.8 : 1.2;
+  const crossfade = opts.reducedMotion ? 0.7 : 0.9;
   const title = opts.title.trim().slice(0, MAX_TITLE);
   const per = secondsPerPhoto(items.length, opts.pace);
   const scenes: Scene[] = [];
@@ -118,7 +134,7 @@ export function buildPlan(items: PlanItem[], opts: MovieOptions): ScenePlan {
   let stillCount = 0;
 
   if (title && items.length > 0) {
-    scenes.push({ kind: 'title', start: 0, end: TITLE_CARD_SECONDS, itemIndex: -1, zoom: 'none' });
+    scenes.push({ kind: 'title', start: 0, end: TITLE_CARD_SECONDS, itemIndex: -1, zoom: 'none', transition: 'none' });
     cursor = TITLE_CARD_SECONDS - crossfade;
   }
   items.forEach((item, i) => {
@@ -133,16 +149,18 @@ export function buildPlan(items: PlanItem[], opts: MovieOptions): ScenePlan {
         itemIndex: i,
         zoom: 'none',
         clip: { start: trim.start, length: trim.length, audio: item.hasAudio && opts.clipSound },
+        transition: 'none',
       };
     } else {
       const zoom = opts.reducedMotion ? 'none' : stillCount % 2 === 0 ? 'in' : 'out';
       stillCount++;
-      scene = { kind: 'photo', start, end: start + per, itemIndex: i, zoom };
+      scene = { kind: 'photo', start, end: start + per, itemIndex: i, zoom, transition: 'none' };
     }
     scenes.push(scene);
     cursor = scene.end - crossfade;
   });
 
+  assignTransitions(scenes, crossfade, opts.reducedMotion);
   const duration = scenes.length ? scenes[scenes.length - 1].end : 0;
   return {
     width: FRAME.width,
@@ -157,6 +175,18 @@ export function buildPlan(items: PlanItem[], opts: MovieOptions): ScenePlan {
     scenes,
     duck: buildDuck(scenes, duration),
   };
+}
+
+/**
+ * Give each scene after the first its way of arriving. Gentle only: with reduced motion everything is
+ * a dissolve, and a scene too short to hold two full transitions also just dissolves.
+ */
+function assignTransitions(scenes: Scene[], crossfade: number, reduced: boolean): void {
+  for (let i = 1; i < scenes.length; i++) {
+    const wanted = TRANSITION_ROTATION[(i - 1) % TRANSITION_ROTATION.length];
+    const roomy = scenes[i].end - scenes[i].start >= 2 * crossfade + 0.2;
+    scenes[i].transition = reduced || !roomy ? 'fade' : wanted;
+  }
 }
 
 /**
@@ -207,7 +237,30 @@ export function musicGain(plan: Pick<ScenePlan, 'duck'>, t: number): number {
 /** Opacity of scene `i` at time `t`. The first scene is opaque; the black overlay fades it in. */
 export function sceneAlpha(plan: ScenePlan, i: number, t: number): number {
   if (i === 0) return t >= plan.scenes[0].start ? 1 : 0;
-  return clamp((t - plan.scenes[i].start) / plan.crossfade, 0, 1);
+  const p = (t - plan.scenes[i].start) / plan.crossfade;
+  // After a dip the new picture only starts to appear once the frame is darkest.
+  return plan.scenes[i].transition === 'dip' ? clamp((p - 0.5) * 2, 0, 1) : clamp(p, 0, 1);
+}
+
+/** Where scene `i` sits at time `t`, in frame pixels away from rest. Only glides and rises move. */
+export function sceneOffset(plan: ScenePlan, i: number, t: number): { x: number; y: number } {
+  const s = plan.scenes[i];
+  const p = clamp((t - s.start) / plan.crossfade, 0, 1);
+  const left = 1 - (0.5 - Math.cos(p * Math.PI) / 2); // 1 at the start of the arrival, 0 once settled
+  if (s.transition === 'glide') return { x: plan.width * GLIDE_X * left, y: 0 };
+  if (s.transition === 'rise') return { x: 0, y: plan.height * RISE_Y * left };
+  return { x: 0, y: 0 };
+}
+
+/** How dark the whole frame is at `t` because of a dip (0 when none is under way). */
+export function dimAlpha(plan: ScenePlan, t: number): number {
+  let dim = 0;
+  for (const s of plan.scenes) {
+    if (s.transition !== 'dip') continue;
+    const p = (t - s.start) / plan.crossfade;
+    if (p > 0 && p < 1) dim = Math.max(dim, DIP_LEVEL * (1 - Math.abs(2 * p - 1)));
+  }
+  return dim;
 }
 
 /** Opacity of the black overlay: fade in from black at the start, out to black at the end. */

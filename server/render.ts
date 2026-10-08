@@ -4,7 +4,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
-import { buildPlan, clipFades, FRAME, type MovieOptions, type PlanItem, type Scene, type ScenePlan, type Trim } from '../src/scene.ts';
+import { buildPlan, clipFades, DIP_LEVEL, FRAME, GLIDE_X, RISE_Y, type MovieOptions, type PlanItem, type Scene, type ScenePlan, type Trim } from '../src/scene.ts';
 import { probe, runFfmpeg, type ClipInfo } from './ffmpeg.ts';
 
 export interface RenderItem {
@@ -229,18 +229,43 @@ export async function renderMovie(req: RenderRequest): Promise<{ plan: ScenePlan
   }
 
   const vf: string[] = [`color=c=${BLACK}:s=${FRAME.width}x${FRAME.height}:r=${FPS}:d=${n(D)}[base]`];
+  const cf = plan.crossfade;
   plan.scenes.forEach((s, i) => {
-    const fade = i > 0 ? `fade=t=in:st=0:d=${n(plan.crossfade)}:alpha=1,` : '';
+    // A dip only starts to show the new picture halfway through; everything else dissolves from the first frame.
+    const fade =
+      i === 0 ? '' : s.transition === 'dip' ? `fade=t=in:st=${n(cf / 2)}:d=${n(cf / 2)}:alpha=1,` : `fade=t=in:st=0:d=${n(cf)}:alpha=1,`;
     vf.push(`[${i}:v]format=yuva420p,${fade}setpts=PTS-STARTPTS+${n(s.start)}/TB[s${i}]`);
   });
+  // Where a gliding or rising picture sits at time t. Mirrors sceneOffset() in src/scene.ts.
+  const left = (s: Scene) => `(1-(0.5-cos(PI*clip((t-${n(s.start)})/${n(cf)}\\,0\\,1))/2))`;
+  const position = (s: Scene) =>
+    s.transition === 'glide'
+      ? `x=${n(FRAME.width * GLIDE_X)}*${left(s)}:y=0:`
+      : s.transition === 'rise'
+        ? `x=0:y=${n(FRAME.height * RISE_Y)}*${left(s)}:`
+        : '';
   let prev = 'base';
-  plan.scenes.forEach((s, i) => {
-    const out = i === plan.scenes.length - 1 ? 'last' : `o${i}`;
-    vf.push(`[${prev}][s${i}]overlay=eof_action=pass:format=yuv420:enable=between(t\\,${n(s.start)}\\,${n(s.end + 0.05)})[${out}]`);
+  let step = 0;
+  const lay = (top: string, window: string, pos = '') => {
+    const out = `o${step++}`;
+    vf.push(`[${prev}][${top}]overlay=${pos}eof_action=pass:format=yuv420:enable=${window}[${out}]`);
     prev = out;
+  };
+  plan.scenes.forEach((s, i) => {
+    lay(`s${i}`, `between(t\\,${n(s.start)}\\,${n(s.end + 0.05)})`, position(s));
+    if (s.transition === 'dip') {
+      // The frame dims to DIP_LEVEL and back across the transition. Mirrors dimAlpha() in src/scene.ts.
+      vf.push(
+        `color=c=${BLACK}:s=${FRAME.width}x${FRAME.height}:r=${FPS}:d=${n(cf)},format=rgba,colorchannelmixer=aa=${DIP_LEVEL},` +
+          `fade=t=in:st=0:d=${n(cf / 2)}:alpha=1,fade=t=out:st=${n(cf / 2)}:d=${n(cf / 2)}:alpha=1,format=yuva420p,` +
+          `setpts=PTS-STARTPTS+${n(s.start)}/TB[dim${i}]`,
+      );
+      lay(`dim${i}`, `between(t\\,${n(s.start)}\\,${n(s.start + cf + 0.05)})`);
+    }
   });
+  const last = prev;
   vf.push(
-    `[last]fade=t=in:st=0:d=${plan.fadeIn}:color=${BLACK},fade=t=out:st=${n(Math.max(0, D - plan.fadeOut))}:d=${plan.fadeOut}:color=${BLACK},format=yuv420p[vout]`,
+    `[${last}]fade=t=in:st=0:d=${plan.fadeIn}:color=${BLACK},fade=t=out:st=${n(Math.max(0, D - plan.fadeOut))}:d=${plan.fadeOut}:color=${BLACK},format=yuv420p[vout]`,
   );
 
   args.push(

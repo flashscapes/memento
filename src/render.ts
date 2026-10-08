@@ -1,4 +1,4 @@
-import { blackAlpha, photoScale, sceneAlpha, type ScenePlan } from './scene.ts';
+import { blackAlpha, dimAlpha, photoScale, sceneAlpha, sceneOffset, type ScenePlan } from './scene.ts';
 
 export interface Drawable {
   /** The picture, or for a clip a still frame used until the live video can be drawn. */
@@ -37,16 +37,28 @@ export function drawFrame(
     if (t < scene.start || t > scene.end) return;
     const alpha = sceneAlpha(plan, i, t);
     if (alpha <= 0) return;
-    ctx.globalAlpha = alpha;
-    if (scene.kind === 'title') {
-      drawTitle(ctx, plan);
-    } else {
-      const item = media[scene.itemIndex];
-      if (!item) return;
-      const p = (t - scene.start) / (scene.end - scene.start);
-      drawMedia(ctx, plan, item, photoScale(plan, scene.zoom, p));
+    const off = sceneOffset(plan, i, t);
+    if (alpha >= 1 && off.x === 0 && off.y === 0) {
+      ctx.globalAlpha = 1;
+      drawScene(ctx, plan, media, scene, t);
+      return;
     }
+    // Mid-transition: flatten the whole picture (backdrop and photo) first, then fade that one layer.
+    // Fading the pieces one by one lets the old picture show through the new one, unlike the MP4.
+    const g = layerContext(plan, scale);
+    drawScene(g, plan, media, scene, t);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(layerCanvas!, off.x, off.y, W, H);
+    ctx.restore();
   });
+
+  const dim = dimAlpha(plan, t);
+  if (dim > 0) {
+    ctx.globalAlpha = dim;
+    ctx.fillStyle = '#0e0d0c';
+    ctx.fillRect(0, 0, W, H);
+  }
 
   const black = blackAlpha(plan, t);
   if (black > 0) {
@@ -55,6 +67,41 @@ export function drawFrame(
     ctx.fillRect(0, 0, W, H);
   }
   ctx.globalAlpha = 1;
+}
+
+function drawScene(ctx: CanvasRenderingContext2D, plan: ScenePlan, media: Drawable[], scene: ScenePlan['scenes'][number], t: number): void {
+  if (scene.kind === 'title') {
+    drawTitle(ctx, plan);
+    return;
+  }
+  const item = media[scene.itemIndex];
+  if (!item) return;
+  const p = (t - scene.start) / (scene.end - scene.start);
+  drawMedia(ctx, plan, item, photoScale(plan, scene.zoom, p));
+}
+
+const layers = new Map<string, HTMLCanvasElement>();
+let layerCanvas: HTMLCanvasElement | null = null;
+
+/** A scratch canvas the size of the frame, one per output size, cleared and ready to draw a scene on. */
+function layerContext(plan: ScenePlan, scale: number): CanvasRenderingContext2D {
+  const w = Math.round(plan.width * scale);
+  const h = Math.round(plan.height * scale);
+  const key = `${w}x${h}`;
+  let c = layers.get(key);
+  if (!c) {
+    c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    layers.set(key, c);
+  }
+  layerCanvas = c;
+  const g = c.getContext('2d')!;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, w, h);
+  g.setTransform(scale, 0, 0, scale, 0, 0);
+  g.globalAlpha = 1;
+  return g;
 }
 
 let tiny: HTMLCanvasElement | null = null;

@@ -2,3 +2,4 @@
 artifact
 dist
 node_modules
+.tmp-doc/
