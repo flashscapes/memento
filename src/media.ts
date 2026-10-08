@@ -486,17 +486,6 @@ export async function loadFiles(
   return { items, failures, skipped, skippedClips };
 }
 
-export async function loadSamples(): Promise<Photo[]> {
-  const names = ['01-pagoda', '02-dahlia', '03-espresso', '04-cat', '05-astronaut', '06-launch'];
-  const out: Photo[] = [];
-  for (const n of names) {
-    const res = await fetch(`samples/${n}.jpg`);
-    if (!res.ok) throw new Error(`Sample ${n} missing`);
-    out.push(await decodePhoto(await res.blob(), `${n}.jpg`, 'sample'));
-  }
-  return out;
-}
-
 export function releaseMedia(m: Media): void {
   if (m.origin !== 'user') return;
   if (m.thumbUrl.startsWith('blob:')) URL.revokeObjectURL(m.thumbUrl);

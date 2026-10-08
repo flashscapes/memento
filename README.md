@@ -20,7 +20,7 @@ To use the MP4 download while developing, run `npm start` in a second terminal; 
 
 **Try it on your iPhone.** Build, then start the server on your network: `npm run build && HOST=0.0.0.0 npm start`, and open `http://<your computer's address>:8787` in Safari on the same Wi-Fi. This is the way to check HEVC clips, clip sound and MP4 download on a real phone. Anyone on that network can reach the server while it runs, so stop it afterwards.
 
-To publish a single-page copy as a claude.ai Artifact: `npm run build && npm run artifact`, then publish `artifact/index.html` with the `samples/` and `audio/` folders beside it. That copy is the browser preview only; it has no renderer, so its Download button says so.
+To publish a single-page copy as a claude.ai Artifact: `npm run build && npm run artifact`, then publish `artifact/index.html` with the `audio/` folder beside it. That copy is the browser preview only; it has no renderer, so its Download button says so.
 
 ## What goes in
 
@@ -29,7 +29,7 @@ Up to **60 photos and clips** in one sequence (at most 12 clips, because phones 
 - **Clips use a short excerpt**: about 6 seconds, starting a little way in (4.5 s with the quicker pace). A clip shorter than that is used whole. Tap any tile to preview it; for a clip, **Starts at** and **Length** sliders trim it and **Let Memento choose** goes back to automatic. This is a fixed rule, not a search for the best moment.
 - **Orientation is kept.** Portrait clips and photos are never rotated wrongly or stretched; margins are filled with a blurred, darkened copy of the same picture.
 - **Sound.** Clips play **silently** by default, over the music (some phones played clip sound distorted in the preview, so it is opt-in). **Edit → Sound from your clips → Play their sound** keeps each clip's own sound, and the music then drops to about 18% under it. A speaker button on the watch screen mutes everything.
-- **Music.** Twelve original tracks to choose from in Edit, each with a mood line and a seven-second sample button, or no music: Gentle piano, Warm glow, Golden hour (lo-fi beat), Café lumière (soft jazz), Porch swing (acoustic guitar), Sunny morning, Tiny parade, Music box, Slow waltz, Northern lights (cinematic), Neon dusk (dreamy synth) and Calm waters.
+- **Music.** Twelve original tracks to choose from in a Music menu on the first screen (and again in Edit), each with a mood line and a seven-second sample button, or no music: Gentle piano, Warm glow, Golden hour (lo-fi beat), Café lumière (soft jazz), Porch swing (acoustic guitar), Sunny morning, Tiny parade, Music box, Slow waltz, Northern lights (cinematic), Neon dusk (dreamy synth) and Calm waters.
 - **Pace.** A still is on screen about 3.5 s with the relaxed pace and about 2.3 s with the quicker pace (roughly half the first version's time), less for big sets: the time shrinks with the number of photos. Scenes meet in a 0.9 s overlap (0.7 s with reduced motion).
 - **Transitions.** Most pictures dissolve into the next. Some glide in from the side, rise from below or arrive through a brief dim (a *dip*). The choice rotates by position, so the same photos always get the same transitions; very short scenes and reduced motion only dissolve. The preview and the MP4 use the same rules.
 - **Full screen.** The button on the watch screen fills the whole page. iPhone Safari has no full screen for this kind of picture, so Memento fills the page itself (turn the phone sideways for the biggest picture); on desktop, iPad and Android it also asks the browser for real full screen. For no browser bars at all on an iPhone, use **Share → Add to Home Screen** and open Memento from the icon.
@@ -99,4 +99,4 @@ Opening photos and clips happens in the browser; nothing is uploaded until you c
 
 ## Credits
 
-See `public/CREDITS.md`. Sample photos are public domain or Creative Commons Attribution 2.0. The music is original and synthesized in `tools/make_music.py`. The icon is drawn by `tools/make_icons.py`. There is no sample video: test clips were generated with FFmpeg and are not included.
+See `public/CREDITS.md`. The music is original and synthesized in `tools/make_music.py`. The icon is drawn by `tools/make_icons.py`. There are no sample photos or videos: test clips were generated with FFmpeg and are not included.

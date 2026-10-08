@@ -1,6 +1,6 @@
-// Turns the Vite build into a single page plus sample/audio files, for publishing as a
+// Turns the Vite build into a single page plus audio files, for publishing as a
 // claude.ai Artifact (which wraps the page in its own document skeleton).
-// Usage: npm run build && npm run artifact   ->  artifact/index.html, artifact/samples, artifact/audio
+// Usage: npm run build && npm run artifact   ->  artifact/index.html, artifact/audio
 import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync } from 'node:fs';
 
 const dist = 'dist';
@@ -25,7 +25,6 @@ writeFileSync(
   `${out}/index.html`,
   `<title>Memento</title>\n<style>\n${css}\n</style>\n${body}\n<script type="module">\n${js}\n</script>\n`,
 );
-cpSync(`${dist}/samples`, `${out}/samples`, { recursive: true });
 cpSync(`${dist}/audio`, `${out}/audio`, { recursive: true });
 cpSync(`${dist}/CREDITS.md`, `${out}/CREDITS.md`);
 console.log('artifact/ ready');

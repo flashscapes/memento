@@ -24,26 +24,22 @@
 
   <main>
     <section class="screen home" id="screen-home" aria-labelledby="home-title">
-      <div class="home-film">
-        <div class="film-frame" id="hero-frame">
-          <canvas id="hero-canvas" aria-hidden="true"></canvas>
-          <button class="fab" id="hero-play" type="button" aria-label="Watch the sample movie" disabled>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 001.5.86l11-6.8a1 1 0 000-1.72l-11-6.8A1 1 0 008 5.2z"/></svg>
-          </button>
-        </div>
-        <p class="caption">A sample film</p>
-      </div>
       <div class="home-copy">
         <h1 id="home-title">Your moments. A little movie.</h1>
         <p class="lede">Choose a few photos and clips. We’ll bring them together beautifully.</p>
+        <div class="field">
+          <label for="home-music">Music</label>
+          <div class="field-row">
+            <select id="home-music" class="select"></select>
+            <button class="iconbtn hear" id="home-hear" type="button" aria-label="Hear this music"></button>
+          </div>
+        </div>
         <div class="stack">
           <button class="btn primary lg" id="choose" type="button">Choose photos &amp; videos</button>
-          <button class="btn quiet" id="sample" type="button" disabled>Watch a sample</button>
           <button class="btn ghost" id="continue" type="button" hidden>Continue with your photos</button>
         </div>
         <div class="loading" id="home-loading" role="status" hidden><p></p><progress max="1" value="0"></progress></div>
         <div class="notice" id="home-notice" role="status" hidden></div>
-        <a class="credit" href="CREDITS.md" target="_blank" rel="noopener">Sample photo credits</a>
       </div>
     </section>
 

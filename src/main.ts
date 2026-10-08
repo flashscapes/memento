@@ -1,7 +1,6 @@
 import {
   MAX_CLIPS,
   loadFiles,
-  loadSamples,
   refreshClipFrame,
   releaseMedia,
   toPlanItems,
@@ -35,7 +34,6 @@ type Options = Omit<MovieOptions, 'reducedMotion'>;
 const state = {
   screen: 'home' as Screen,
   items: [] as Media[],
-  samples: [] as Photo[],
   options: { title: '', music: 'gentle', pace: 'relaxed', clipSound: false } as Options,
   fresh: new Set<string>(),
   muted: false,
@@ -129,8 +127,6 @@ const usedLength = (c: Clip) => resolveTrim(c.duration, c.trim, state.options.pa
 
 // ---------------------------------------------------------------- screens
 
-let hero: Player | null = null;
-
 function show(screen: Screen): void {
   if (state.screen === 'watch' && screen !== 'watch') {
     film.pause();
@@ -148,7 +144,6 @@ function show(screen: Screen): void {
     } else el.hidden = !on;
   }
   window.scrollTo(0, 0);
-  syncHero();
   if (screen === 'home') {
     const cont = $<HTMLButtonElement>('continue');
     const mine = state.items.filter((m) => m.origin === 'user');
@@ -156,13 +151,6 @@ function show(screen: Screen): void {
     cont.textContent = `Continue with your ${describe(mine)}`;
   }
   if (screen === 'photos') $('photos-title').focus({ preventScroll: true });
-}
-
-function syncHero(): void {
-  if (!hero) return;
-  const wantPlaying = state.screen === 'home' && !reduced.matches && !document.hidden;
-  if (wantPlaying && hero.state !== 'playing') hero.play();
-  else if (!wantPlaying && hero.state === 'playing') hero.pause();
 }
 
 // ---------------------------------------------------------------- photos and clips
@@ -241,7 +229,6 @@ async function handleFiles(files: File[]): Promise<void> {
   const here = state.screen;
   const target = here === 'home' ? 'home-notice' : 'photos-notice';
   const where = here === 'home' ? 'home' : 'photos';
-  if (state.items.length && state.items.every((m) => m.origin === 'sample')) state.items = [];
   const room = MAX_ITEMS - state.items.length;
   if (room <= 0) {
     notice(target, [`Memento uses up to ${MAX_ITEMS} photos and clips. Remove one to add another.`]);
@@ -576,20 +563,6 @@ async function make(): Promise<void> {
   }
 }
 
-async function watchSample(): Promise<void> {
-  if (!state.samples.length || loading) return;
-  music.unlock();
-  state.items = [...state.samples];
-  renderGrid();
-  show('watch');
-  try {
-    await startMovie(true);
-  } catch {
-    show('home');
-    notice('home-notice', ['The sample couldn’t be played. Try again.']);
-  }
-}
-
 // A few seconds of a track so you can choose by ear. Stops on its own, on the next tap, or when Edit closes.
 let previewId: MusicId | null = null;
 let previewTimer = 0;
@@ -600,7 +573,7 @@ function stopPreview(): void {
   window.clearTimeout(previewTimer);
   if (previewId) music.stop();
   previewId = null;
-  for (const b of document.querySelectorAll<HTMLButtonElement>('#music-list .hear')) {
+  for (const b of document.querySelectorAll<HTMLButtonElement>('.hear')) {
     b.innerHTML = ICON_PLAY_SM;
     b.setAttribute('aria-label', `Hear ${b.dataset.label}`);
   }
@@ -659,6 +632,33 @@ function buildMusicList(): void {
   row('none', 'No music', 'Just the photos and clips');
 }
 
+/** The music menu on the home screen. It and Edit's list always agree because both read state.options.music. */
+function buildHomeMusic(): void {
+  const sel = $<HTMLSelectElement>('home-music');
+  const hear = $<HTMLButtonElement>('home-hear');
+  for (const [id, t] of Object.entries(TRACKS)) sel.add(new Option(t.label, id));
+  sel.add(new Option('No music', 'none'));
+  const sync = () => {
+    sel.value = state.options.music;
+    const none = state.options.music === 'none';
+    hear.hidden = none;
+    hear.dataset.label = none ? '' : TRACKS[state.options.music as Exclude<MusicId, 'none'>].label;
+    hear.innerHTML = ICON_PLAY_SM;
+    hear.setAttribute('aria-label', `Hear ${hear.dataset.label}`);
+  };
+  sel.addEventListener('change', () => {
+    stopPreview();
+    state.options = { ...state.options, music: sel.value as MusicId };
+    sync();
+  });
+  hear.addEventListener('click', () => {
+    if (state.options.music !== 'none') void togglePreview(state.options.music, hear);
+  });
+  syncHomeMusic = sync;
+  sync();
+}
+let syncHomeMusic: () => void = () => {};
+
 function openEdit(): void {
   film.pause();
   const dlg = $<HTMLDialogElement>('edit-dialog');
@@ -684,6 +684,7 @@ function applyEdit(): void {
   };
   const changed = (Object.keys(next) as (keyof Options)[]).some((k) => next[k] !== state.options[k]);
   state.options = next;
+  syncHomeMusic();
   dlg.close();
   if (changed) void startMovie(true);
 }
@@ -898,8 +899,6 @@ function wire(): void {
     void handleFiles(files);
   });
   $('continue').addEventListener('click', () => show('photos'));
-  $('sample').addEventListener('click', () => void watchSample());
-  $('hero-play').addEventListener('click', () => void watchSample());
   $('make').addEventListener('click', () => void make());
   $('back').addEventListener('click', () => show(state.items.length ? 'photos' : 'home'));
 
@@ -1025,6 +1024,7 @@ function wire(): void {
 
   // Edit sheet
   buildMusicList();
+  buildHomeMusic();
   $<HTMLDialogElement>('edit-dialog').addEventListener('close', () => {
     stopPreview();
     music.setMuted(state.muted);
@@ -1037,29 +1037,12 @@ function wire(): void {
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && film.state === 'playing') film.pause();
-    syncHero();
-  });
-  reduced.addEventListener('change', () => {
-    if (hero && state.samples.length) hero.setMovie(state.samples, { ...state.options, music: 'none', reducedMotion: reduced.matches }, reduced.matches ? 2.5 : 0);
-    syncHero();
   });
 }
 
 async function boot(): Promise<void> {
   wire();
   syncWatchUi('idle');
-  hero = new Player($<HTMLCanvasElement>('hero-canvas'), { scale: 0.5, loop: true, music: null });
-  try {
-    state.samples = await loadSamples();
-    hero.setMovie(state.samples, { title: '', music: 'none', pace: 'relaxed', reducedMotion: reduced.matches, clipSound: false }, reduced.matches ? 2.5 : 0);
-    $<HTMLButtonElement>('sample').disabled = false;
-    $<HTMLButtonElement>('hero-play').disabled = false;
-    syncHero();
-  } catch {
-    $('hero-play').hidden = true;
-    $('sample').hidden = true;
-    notice('home-notice', ['The sample photos couldn’t be loaded. You can still choose your own.'], 'info');
-  }
   show('home');
 }
 
