@@ -29,12 +29,13 @@
       </div>
       <div class="home-copy">
         <h1 id="home-title">Your moments. A little movie.</h1>
-        <p class="lede">Choose a few photos. We’ll bring them together beautifully.</p>
+        <p class="lede">Choose a few photos and clips. We’ll bring them together beautifully.</p>
         <div class="stack">
-          <button class="btn primary lg" id="choose" type="button">Choose photos</button>
+          <button class="btn primary lg" id="choose" type="button">Choose photos &amp; videos</button>
           <button class="btn quiet" id="sample" type="button" disabled>Watch a sample</button>
           <button class="btn ghost" id="continue" type="button" hidden>Continue with your photos</button>
         </div>
+        <div class="loading" id="home-loading" role="status" hidden><p></p><progress max="1" value="0"></progress></div>
         <div class="notice" id="home-notice" role="status" hidden></div>
         <a class="credit" href="CREDITS.md" target="_blank" rel="noopener">Sample photo credits</a>
       </div>
@@ -43,14 +44,15 @@
     <section class="screen photos" id="screen-photos" aria-labelledby="photos-title" hidden>
       <div class="photos-head">
         <div class="photos-title">
-          <h2 id="photos-title" tabindex="-1">Your photos</h2>
-          <p class="count" id="count">0 photos</p>
+          <h2 id="photos-title" tabindex="-1">Your moments</h2>
+          <p class="count" id="count">Nothing yet</p>
         </div>
         <div class="row">
-          <button class="btn quiet sm" id="add" type="button">Add photos</button>
+          <button class="btn quiet sm" id="add" type="button">Add more</button>
           <button class="btn quiet sm" id="arrange" type="button">Arrange</button>
         </div>
       </div>
+      <div class="loading" id="photos-loading" role="status" hidden><p></p><progress max="1" value="0"></progress></div>
       <div class="notice" id="photos-notice" role="status" hidden></div>
       <ul class="grid" id="grid"></ul>
       <div class="makebar">
@@ -80,6 +82,7 @@
           <button class="iconbtn" id="pp" type="button" aria-label="Play"></button>
           <input class="seek" id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Position in the movie">
           <span class="time" id="time">0:00 / 0:00</span>
+          <button class="iconbtn" id="mute" type="button" aria-label="Mute" aria-pressed="false" hidden></button>
           <button class="iconbtn" id="fs" type="button" aria-label="Full screen" hidden>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
           </button>
@@ -88,10 +91,11 @@
       <div class="info">
         <h1 class="movie-title" id="movie-title" hidden></h1>
         <p class="caption">Browser preview</p>
+        <p class="caption warn" id="sound-note" role="status" hidden></p>
         <div class="actions" id="actions">
           <button class="btn primary" id="replay" type="button">Replay</button>
           <button class="btn quiet" id="edit" type="button">Edit</button>
-          <button class="btn ghost two" id="download" type="button"><span>Download MP4</span><small>Not set up yet</small></button>
+          <button class="btn ghost" id="download" type="button">Download MP4</button>
         </div>
       </div>
     </section>
@@ -99,7 +103,7 @@
 
   <dialog class="sheet" id="edit-dialog" aria-labelledby="edit-title">
     <form id="edit-form" method="dialog">
-      <h2 id="edit-title">Edit your movie</h2>
+      <h2 id="edit-title" tabindex="-1" autofocus>Edit your movie</h2>
       <div class="field">
         <label for="title-input">Title <span class="opt">Optional</span></label>
         <input id="title-input" type="text" maxlength="60" autocomplete="off" placeholder="Add a title">
@@ -110,6 +114,13 @@
           <label><input type="radio" name="music" value="gentle"><span>Gentle piano</span></label>
           <label><input type="radio" name="music" value="warm"><span>Warm glow</span></label>
           <label><input type="radio" name="music" value="none"><span>No music</span></label>
+        </div>
+      </fieldset>
+      <fieldset class="group" id="clipsound-group" hidden>
+        <legend>Sound from your clips</legend>
+        <div class="seg">
+          <label><input type="radio" name="clipsound" value="on"><span>Keep it</span></label>
+          <label><input type="radio" name="clipsound" value="off"><span>Silent clips</span></label>
         </div>
       </fieldset>
       <fieldset class="group">
@@ -127,24 +138,45 @@
   </dialog>
 
   <dialog class="sheet" id="arrange-dialog" aria-labelledby="arrange-title">
-    <h2 id="arrange-title">Arrange photos</h2>
+    <h2 id="arrange-title">Arrange</h2>
     <ol class="arr-list" id="arrange-list"></ol>
     <div class="sheet-actions">
       <button class="btn primary" id="arrange-done" type="button">Done</button>
     </div>
   </dialog>
 
-  <dialog class="sheet" id="download-dialog" aria-labelledby="download-title">
-    <h2 id="download-title">MP4 download isn’t set up yet</h2>
-    <p>What you’re watching is a live preview drawn in your browser, so there is no video file to save yet.</p>
-    <p>A real MP4 needs the Memento renderer, which isn’t connected. Your photos and choices are kept.</p>
+  <dialog class="sheet" id="item-dialog" aria-labelledby="item-title">
+    <h2 id="item-title">Photo</h2>
+    <div class="peek" id="peek"></div>
+    <div id="clip-tools" hidden>
+      <div class="excerpt" aria-hidden="true"><i id="excerpt-bar"></i></div>
+      <p class="excerpt-text" id="excerpt-text"></p>
+      <div class="field range-field">
+        <label for="trim-start">Starts at <output id="trim-start-out"></output></label>
+        <input class="range" id="trim-start" type="range" min="0" max="1" step="0.1" value="0">
+      </div>
+      <div class="field range-field">
+        <label for="trim-length">Length <output id="trim-length-out"></output></label>
+        <input class="range" id="trim-length" type="range" min="1.5" max="20" step="0.5" value="6">
+      </div>
+      <p class="sub" id="clip-audio-note"></p>
+      <button class="btn ghost sm" id="trim-auto" type="button">Let Memento choose</button>
+    </div>
     <div class="sheet-actions">
-      <button class="btn primary" id="download-ok" type="button">Got it</button>
+      <button class="btn quiet" id="item-remove" type="button">Remove</button>
+      <button class="btn primary" id="item-done" type="button">Done</button>
     </div>
   </dialog>
 
+  <dialog class="sheet" id="download-dialog" aria-labelledby="download-title">
+    <h2 id="download-title">Download MP4</h2>
+    <div id="download-body"></div>
+    <div class="loading" id="download-loading" hidden><p id="download-stage"></p><progress id="download-progress" max="1" value="0"></progress></div>
+    <div class="sheet-actions" id="download-actions"></div>
+  </dialog>
+
   <p class="sr-only" id="sr-status" role="status" aria-live="polite"></p>
-  <input type="file" id="file" accept="image/*" multiple hidden>
+  <input type="file" id="file" accept="image/*,video/*,.mov,.mp4,.m4v" multiple hidden>
 </div>
 <!--/app-->
 <script type="module" src="/src/main.ts"></script>

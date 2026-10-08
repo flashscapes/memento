@@ -1,4 +1,4 @@
-import type { MusicId } from './scene.ts';
+import { musicGain, type DuckPoint, type MusicId } from './scene.ts';
 
 export const TRACKS: Record<Exclude<MusicId, 'none'>, { label: string; url: string }> = {
   gentle: { label: 'Gentle piano', url: 'audio/gentle.mp3' },
@@ -20,6 +20,8 @@ export class MusicEngine {
   private buffers = new Map<string, AudioBuffer>();
   private source: AudioBufferSourceNode | null = null;
   private gain: GainNode | null = null;
+  private master: GainNode | null = null;
+  private muted = false;
 
   /** Call synchronously inside a tap. Browsers only allow audio after a gesture. */
   unlock(): void {
@@ -30,11 +32,21 @@ export class MusicEngine {
         const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         if (!AC) return;
         this.ctx = new AC();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = this.muted ? 0 : 1;
+        this.master.connect(this.ctx.destination);
       }
       void this.ctx.resume();
     } catch {
       this.ctx = null;
     }
+  }
+
+  /** Mutes the soundtrack without touching its schedule. */
+  setMuted(muted: boolean): void {
+    this.muted = muted;
+    const ctx = this.ctx;
+    if (ctx && this.master) this.master.gain.setTargetAtTime(muted ? 0 : 1, ctx.currentTime, 0.04);
   }
 
   get available(): boolean {
@@ -59,8 +71,11 @@ export class MusicEngine {
     this.buffers.set(id, buf);
   }
 
-  /** Start `id` at `offset` seconds into a movie that is `duration` seconds long. */
-  start(id: MusicId, offset: number, duration: number): void {
+  /**
+   * Start `id` at `offset` seconds into a movie that is `duration` seconds long. `duck` lowers the music
+   * under clips that have their own sound; the MP4 renderer follows the same curve.
+   */
+  start(id: MusicId, offset: number, duration: number, duck: DuckPoint[] = []): void {
     this.stop();
     const ctx = this.ctx;
     if (!ctx || id === 'none') return;
@@ -70,11 +85,16 @@ export class MusicEngine {
     if (remaining <= 0.05) return;
     const now = ctx.currentTime;
     const gain = ctx.createGain();
+    const ducker = ctx.createGain();
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.loop = true;
     src.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(ducker);
+    ducker.connect(this.master ?? ctx.destination);
+
+    ducker.gain.setValueAtTime(duck.length ? musicGain({ duck }, offset) : 1, now);
+    for (const p of duck) if (p.t > offset) ducker.gain.linearRampToValueAtTime(p.g, now + (p.t - offset));
 
     gain.gain.setValueAtTime(0, now);
     gain.gain.linearRampToValueAtTime(LEVEL, now + (offset < 0.1 ? FADE_IN : 0.25));

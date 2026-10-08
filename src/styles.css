@@ -94,6 +94,7 @@ button.fab[disabled] { opacity: 0.4; cursor: default; }
 .fab svg { margin-left: 3px; }
 
 .caption { font-size: 15px; color: var(--muted); }
+.caption.warn { color: var(--warn); }
 .credit { align-self: flex-start; min-height: 44px; display: inline-flex; align-items: center; font-size: 15px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .credit:hover { color: var(--ink); }
 .notice { color: var(--muted); font-size: 15px; line-height: 1.5; }
@@ -103,7 +104,8 @@ button.fab[disabled] { opacity: 0.4; cursor: default; }
 
 /* ---- Screens ---- */
 .screen { animation: enter 0.26s var(--ease) both; }
-@keyframes enter { from { opacity: 0; transform: translateY(8px); } }
+/* Opacity only: a transform here would make the fixed Make my movie bar jump while the screen fades in. */
+@keyframes enter { from { opacity: 0; } }
 
 /* ---- Home ---- */
 .home { display: block; }
@@ -141,6 +143,26 @@ button.fab[disabled] { opacity: 0.4; cursor: default; }
 .grid li.fresh { animation: appear 0.26s var(--ease) both; animation-delay: calc(var(--i, 0) * 30ms); }
 @keyframes appear { from { opacity: 0; transform: scale(0.97); } }
 .grid img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.open { display: block; position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: pointer; border-radius: inherit; }
+.open:focus-visible { outline-offset: -3px; }
+.grid li.clip .play {
+  position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%;
+  display: grid; place-items: center; background: rgba(23, 22, 20, 0.58); color: var(--ink); pointer-events: none;
+}
+.grid li.clip .play svg { margin-left: 2px; }
+.badge {
+  position: absolute; left: 6px; bottom: 6px; padding: 2px 8px; border-radius: 999px; pointer-events: none;
+  background: rgba(23, 22, 20, 0.72); color: var(--ink); font-size: 14px; line-height: 20px; font-variant-numeric: tabular-nums;
+}
+
+.loading { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 16px; max-width: 420px; }
+.loading p { font-size: 15px; color: var(--muted); }
+.sheet .loading { margin: 6px 0 0; max-width: none; }
+.sheet code { display: block; margin: 4px 0 12px; padding: 12px 14px; border-radius: 10px; background: var(--bg); color: var(--ink); font: 500 15px/1.5 ui-monospace, 'SF Mono', Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+.loading progress { width: 100%; height: 4px; appearance: none; -webkit-appearance: none; border: 0; border-radius: 2px; background: var(--line); overflow: hidden; }
+.loading progress::-webkit-progress-bar { background: var(--line); }
+.loading progress::-webkit-progress-value { background: var(--accent); border-radius: 2px; transition: width 0.2s var(--ease); }
+.loading progress::-moz-progress-bar { background: var(--accent); }
 .rm {
   position: absolute; top: 0; right: 0; width: 44px; height: 44px; padding: 0; border: 0;
   background: none; display: grid; place-items: center; cursor: pointer; color: var(--ink);
@@ -176,17 +198,33 @@ button.fab[disabled] { opacity: 0.4; cursor: default; }
 
 .controls { display: flex; align-items: center; gap: 4px; padding: 6px calc(var(--gutter) - 8px) 0; }
 .time { font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; padding: 0 6px; }
-.seek { --p: 0%; flex: 1; min-width: 0; height: 44px; margin: 0; background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer; }
-.seek::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--accent) var(--p), var(--line) var(--p)); }
-.seek::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line); }
-.seek::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--accent); }
-.seek::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 50%; border: 0; background: var(--ink); }
-.seek::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; border: 0; background: var(--ink); }
+.seek, .range { --p: 0%; flex: 1; min-width: 0; height: 44px; margin: 0; background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer; }
+.seek::-webkit-slider-runnable-track, .range::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--accent) var(--p), var(--line) var(--p)); }
+.seek::-moz-range-track, .range::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line); }
+.seek::-moz-range-progress, .range::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--accent); }
+.seek::-webkit-slider-thumb, .range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 50%; border: 0; background: var(--ink); }
+.seek::-moz-range-thumb, .range::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; border: 0; background: var(--ink); }
 
 .info { padding: 20px var(--gutter) 0; display: flex; flex-direction: column; gap: 10px; }
 .movie-title { font: 800 clamp(1.6rem, 6vw, 2.1rem) / 1.15 var(--head); letter-spacing: -0.025em; overflow-wrap: anywhere; text-wrap: balance; }
 .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; max-width: 420px; min-height: 190px; transition: opacity 0.22s, visibility 0.22s; }
 .actions.away { opacity: 0; visibility: hidden; }
+
+/* ---- Item preview and trim ---- */
+.peek { position: relative; display: grid; place-items: center; margin-bottom: 14px; border-radius: 12px; background: #0e0d0c; overflow: hidden; max-height: 40dvh; min-height: 120px; }
+.peek img, .peek video { display: block; max-width: 100%; max-height: 40dvh; width: auto; height: auto; object-fit: contain; }
+.peek .fab { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; transition: opacity 0.2s; }
+.peek .fab.off { opacity: 0; pointer-events: none; }
+.peek-hit { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; padding: 0; background: none; cursor: pointer; }
+.excerpt { height: 6px; border-radius: 3px; background: var(--line); position: relative; overflow: hidden; margin: 2px 0 8px; }
+.excerpt i { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 3px; }
+.excerpt-text { margin-bottom: 8px !important; font-variant-numeric: tabular-nums; }
+.range-field { margin-bottom: 4px; gap: 0; }
+.range-field label { display: flex; justify-content: space-between; gap: 12px; }
+.range-field output { color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+.field input.range { flex: none; width: 100%; min-height: 44px; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.sheet .sub { font-size: 15px; margin-bottom: 4px; }
+#trim-auto { padding: 0 4px; margin-left: -4px; }
 
 /* ---- Sheets ---- */
 .sheet {
@@ -197,7 +235,7 @@ button.fab[disabled] { opacity: 0.4; cursor: default; }
 .sheet[open] { animation: sheet-in 0.26s var(--ease) both; }
 @keyframes sheet-in { from { opacity: 0; transform: translateY(14px); } }
 .sheet::backdrop { background: rgba(10, 9, 8, 0.68); }
-.sheet h2 { font: 800 1.5rem/1.2 var(--head); letter-spacing: -0.02em; margin-bottom: 18px; }
+.sheet h2 { outline: none; font: 800 1.5rem/1.2 var(--head); letter-spacing: -0.02em; margin-bottom: 18px; }
 .sheet p { color: var(--muted); font-size: 16px; margin-bottom: 12px; max-width: 46ch; }
 .sheet-actions { display: flex; gap: 10px; margin-top: 22px; }
 .sheet-actions .btn { flex: 1; }
@@ -224,8 +262,9 @@ button.fab[disabled] { opacity: 0.4; cursor: default; }
 
 .arr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .arr-list li { display: grid; grid-template-columns: 76px 1fr auto auto; align-items: center; gap: 10px; }
+.arr-list .lab small { display: block; font-size: 14px; color: var(--muted); }
 .arr-list img { width: 76px; height: 56px; object-fit: contain; background: var(--surface); border-radius: 8px; display: block; }
-.arr-list .lab { font-size: 16px; }
+.arr-list .lab { font-size: 16px; min-width: 0; }
 .arr-list .iconbtn { background: var(--surface); }
 .arr-list .iconbtn[disabled] { opacity: 0.3; cursor: default; }
 
@@ -250,6 +289,8 @@ button.fab[disabled] { opacity: 0.4; cursor: default; }
   .photos-head .row .btn { flex: none; }
   .makebar-in { max-width: 380px; }
 }
+
+@media (max-width: 360px) { #fs { display: none; } }
 
 /* Phone turned sideways: the movie gets the screen. */
 @media (orientation: landscape) and (max-height: 520px) {
